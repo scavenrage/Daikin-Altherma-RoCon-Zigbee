@@ -34,22 +34,33 @@ clock in sync with Home Assistant.
 | `firmware/tools/gen_rocon_table.py` | Generates `rocon_table.h` from the parameter list of the Trunks1982 project |
 | `tools/` | Web pages for Bluetooth update and Bluetooth log (`ble_update.html`, `ble_log.html`) |
 | `ha/` | ZHA quirk (`altherma_quirk.py`) and Home Assistant screenshot |
-| `hardware/` | EasyEDA Pro schematic and PCB (`.epro2`), schematic image |
+| `hardware/` | EasyEDA Pro schematic and PCB (`.epro2`), schematic and PCB images |
 | `binaries/` | Ready-to-flash firmware (see [Flashing without ESP-IDF](#flashing-without-esp-idf)) |
 
 ## Hardware
 
 ![Schematic](hardware/Schematic.png)
 
+| PCB |
+|---|
+| ![PCB](hardware/PCB.webp) |
+
 The design files `hardware/Schematic.epro2` and `hardware/PCB.epro2` are **EasyEDA Pro** projects:
 open them with EasyEDA Pro (desktop app or the web editor at [pro.easyeda.com](https://pro.easyeda.com)).
-`hardware/Schematic.png` is an export of the schematic for quick viewing.
+`hardware/Schematic.png` is an export of the schematic and `hardware/PCB.webp` a view of the
+PCB layout, for quick viewing.
 
-The board is powered by the RoCon itself and connects to connector **J13** of the RoCon BM1
-board, which carries the CAN bus and a +20 V supply.
+The bridge plugs into connector **J13** of the RoCon BM1 board, which carries the CAN bus and a
++20 V supply.
 
 > **Safety:** the heat pump is mains powered. Switch the whole system off before opening it
 > and connecting the bridge.
+
+### Mounting on J13
+
+U5 mates with the original J13 connector **rotated by 180°**. Inside the heat pump the
+connectors face so that their cables leave towards the inside of the unit; turned the other
+way round, the plug still fits, and the PCB sits right in front of the connector, out of the way.
 
 ### Connector to the RoCon — U5 (DB301V-5.0-4P)
 
@@ -60,21 +71,35 @@ board, which carries the CAN bus and a +20 V supply.
 | 2 | CAN L |
 | 1 | CAN H |
 
+### Power — jumper H2
+
+The bridge can be powered either by the heat pump or by USB, selected with the jumper on H2
+(marked **20V** and **USB** on the PCB):
+
+| Jumper | Power source |
+|---|---|
+| H2 1–2 (**20V**) | +20 V from the RoCon (U5 pin 4, through fuse F2) |
+| H2 2–3 (**USB**) | VBUS of the USB-C connector |
+
+H2 pin 2 feeds the input of the DC/DC converter U1. With the jumper on **20V**, the USB-C
+connector can still be used for flashing and logs: its VBUS is then not connected.
+
 ### Main parts
 
 | Ref | Part | Function |
 |---|---|---|
 | U3 | ESP32-H2-MINI-1-N4 | MCU, Zigbee and Bluetooth LE, 4 MB flash |
 | U4 | SN65HVD230DR | 3.3 V CAN transceiver (RS to GND through R4 10 kΩ) |
-| U1 | TSR 1-2433E | DC/DC converter, +20 V → 3.3 V |
+| U1 | TSR 1-2433E | DC/DC converter, input from H2 (+20 V or USB 5 V) → 3.3 V |
+| H2 | 3-pin header + jumper | Power source selection (20V / USB) |
 | F2 | RF1343-000 | Resettable fuse on the +20 V input |
 | R3 | 120 Ω | CAN termination between CAN H and CAN L |
-| USB2 | USB4105-GF-A-120 | USB-C, data only (ESP32-H2 native USB, flashing and logs) |
+| USB | USB4105-GF-A-120 | USB-C: ESP32-H2 native USB (flashing and logs), optional power through H2 |
 | SW1 | push button | BOOT (GPIO9): factory reset / download mode |
 | SW2 | push button | RESET (EN) |
-| LED2 | yellow LED + R21 1 kΩ | Status LED (GPIO22) |
+| LED | yellow LED + R21 1 kΩ | Status LED (GPIO22) |
 
-A 4-pin header carries 3.3 V, GND and UART0 TX/RX (serial console).
+Header H1 (4 pins): 1 TX, 2 RX, 3 GND, 4 3.3 V — UART0 serial console.
 
 ### GPIO map
 
