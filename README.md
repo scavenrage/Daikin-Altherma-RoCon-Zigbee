@@ -152,6 +152,35 @@ the clock sync. The names of EP2–11 come from the ZCL `description` attribute;
 
 The three DHW setpoints are the three switching cycles of the RoCon DHW time program.
 
+### Exposed entities vs. what the RoCon offers
+
+The entities above are **only a small part** of what is available: they are the ones I use
+myself, mostly for domestic hot water.
+
+- **Already read, not exposed.** The firmware polls all **106 parameters** of the table
+  (a full cycle takes about 27 s) and decodes every reply, but only 11 are sent to Home
+  Assistant. The others include outdoor temperature, flow and return temperatures, flow rate,
+  compressor and pump status, energy counters and runtimes, heating curve, heating and
+  cooling limits, quiet mode, smart grid, backup heater settings. The full list is in
+  `firmware/main/rocon_table.h`.
+- **Adding one** means a line in the `s_map` table and an endpoint in `create_endpoints()`
+  (`firmware/main/zigbee.c`). To make it writable it must also be added to
+  `s_curated_writable` in `firmware/main/rocon_params.c`: the `writable` flag of the table alone
+  is not enough, on purpose.
+- **Not reverse-engineered yet.** The RoCon has more than these 106 parameters. Known gaps:
+  the time programs (switching times of the heating and DHW programs) are not documented by
+  the projects in [Credits](#credits); the panel reads at least one parameter that is not in the
+  table (`FA C0 B4`); after a "1x hot water" command four unknown values (`0A 5D`, `79 5D`, `0A 5E`,
+  `0A 53`) were seen changing for about 2 s; sending a room temperature, as a RoCon U1 room
+  station does, is not possible today.
+- **Clock write is new.** Date and time are read-only in the projects in [Credits](#credits);
+  the write commands used for the clock sync were found here by sniffing the bus while
+  setting the clock from the panel.
+
+To look for more, set `SNIFF_MODE_ENABLED` to 1 in `firmware/main/config.h`: the bridge stops
+polling and prints every frame on the bus (time, ID, data, parameter name when known), so you
+can change a setting on the panel and see which frame it sends.
+
 ### ZHA quirk
 
 `ha/altherma_quirk.py` gives the names BLE, PROG, RESCRED and LOG to EP20–23. Copy it into
