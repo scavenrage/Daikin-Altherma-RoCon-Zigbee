@@ -838,9 +838,12 @@ static esp_err_t zb_action_handler(esp_zb_core_action_callback_id_t cb_id, const
 
 /* ── Segnali Zigbee (join/steering/keepalive) ─────────────────────────
  * Portato da smart_switch, che lo usa in produzione: gestisce steering,
- * island detection tramite ping ZDO periodico al coordinator, e hard/phy
- * reset in caso di disconnessione persistente o bug noto dello stack
- * (steering "riuscito" ma indirizzo 0xFFFF). */
+ * island detection tramite ping ZDO periodico al coordinator. Coordinator
+ * irraggiungibile per COORDINATOR_PING_MAX_FAILS ping: deep sleep 3 s e riavvio
+ * CON le credenziali. Steering fallito STEERING_MAX_FAILS volte: phy reset
+ * (credenziali conservate). Le credenziali si cancellano solo su richiesta
+ * (BOOT 5 s, RESCRED, pagina BLE) o per il bug noto dello stack (steering
+ * "riuscito" ma indirizzo 0xFFFF). */
 #define COORDINATOR_PING_TICK_MS       60000
 #define COORDINATOR_PING_TICKS         5        /* 5 x 60s = 5 min tra i ping */
 #define COORDINATOR_PING_MAX_FAILS     6
@@ -929,7 +932,20 @@ static void coordinator_ping_result(esp_zb_zdp_status_t zdo_status,
         led_set_state(LED_ZIGBEE_SEARCHING);
 
         if (s_ping_fail_count >= COORDINATOR_PING_MAX_FAILS) {
-            zigbee_hard_reset("ping fail");
+            /* Coordinator irraggiungibile da ~4-5 min. NON si cancellano le credenziali: il caso
+             * tipico e' il coordinator spento (manutenzione di HA, chiavetta guasta) e cancellarle
+             * obbligherebbe a riassociare il dispositivo. Si riavvia passando dal deep sleep di
+             * 3 s (reinizializza il radio come un power cycle) mantenendo le credenziali:
+             * all'avvio lo stack tenta il rejoin con i dati salvati. Se il coordinator e' ancora
+             * spento il ciclo si ripete finche' non torna. Stessa correzione dello SmartSwitch
+             * v2.0.1 (prima qui c'era zigbee_hard_reset(), eredita' dei problemi di ZBOSS).
+             * Il risveglio da deep sleep (ESP_RST_DEEPSLEEP) non fa scattare il recupero da
+             * reset non pulito in app_main. */
+            ESP_LOGW(TAG, "Coordinator irraggiungibile da %d ping - deep sleep 3s, credenziali conservate",
+                     s_ping_fail_count);
+            vTaskDelay(pdMS_TO_TICKS(100));
+            esp_sleep_enable_timer_wakeup(3ULL * 1000 * 1000);
+            esp_deep_sleep_start();
         }
         esp_zb_scheduler_alarm((esp_zb_callback_t)bdb_start_cb,
                                ESP_ZB_BDB_MODE_NETWORK_STEERING, 30000);

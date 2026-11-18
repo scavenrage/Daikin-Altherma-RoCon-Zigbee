@@ -36,6 +36,7 @@ clock in sync with Home Assistant.
 | `ha/` | ZHA quirk (`altherma_quirk.py`) and Home Assistant screenshot |
 | `hardware/` | EasyEDA Pro schematic and PCB (`.epro2`), schematic and PCB images |
 | `binaries/` | Ready-to-flash firmware (see [Flashing without ESP-IDF](#flashing-without-esp-idf)) |
+| `CHANGELOG.md` | Changes between published versions |
 
 ## Hardware
 
@@ -319,6 +320,26 @@ Factory reset (leave the Zigbee network): hold BOOT (GPIO9) for 5 seconds, or us
 
 A bridge that was running a firmware based on esp-zigbee-lib 1.x keeps its pairing: the Zigbee
 data is migrated once at the first start with `esp_zigbee_nvram_migrate()`.
+
+## Network recovery
+
+- **Coordinator keepalive**: every 5 minutes the bridge sends a ZDO request to the coordinator
+  to check that the path is alive; a 40 s guard forces a failure if no answer ever arrives.
+  Every successful keepalive also sends all exposed values again.
+- **Coordinator unreachable**: after 6 consecutive failed keepalives (about 4–5 minutes) the
+  bridge enters deep sleep for 3 s and restarts **keeping its Zigbee credentials**, then rejoins
+  by itself. If the coordinator is still off (for example Home Assistant under maintenance) the
+  cycle repeats until it is back: the bridge never needs to be paired again because of it.
+- **Steering failures**: after 10 consecutive failed steering attempts (about 5 minutes) only
+  `phy_init` (RF calibration data) is erased and the bridge restarts; the credentials are kept.
+- **Unclean reset**: after a panic, watchdog, brownout or unplanned software reset the bridge
+  enters deep sleep for 3 s before starting Zigbee, because on ESP32-H2 a software reset can
+  leave the 802.15.4 radio degraded. Restarts requested by the user (BLE update, LOG switch,
+  factory reset, serial `reset`) skip it.
+- **Zigbee watchdog**: if the Zigbee stack stops running its scheduled tasks for more than
+  3 minutes, the bridge enters deep sleep for 3 s.
+- The Zigbee credentials are erased **only** on request (BOOT held 5 s, RESCRED switch, BLE page)
+  or when the stack reports the invalid short address 0xFFFF after steering.
 
 ## Credits
 
