@@ -349,4 +349,9 @@ data is migrated once at the first start with `esp_zigbee_nvram_migrate()`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+- Firmware, Home Assistant quirk and tools: MIT — see [LICENSE](LICENSE).
+- Hardware (`hardware/`: schematics, PCB): CERN-OHL-P-2.0 — see [hardware/LICENSE](hardware/LICENSE).
+
+Third-party: `firmware/main/rocon_table.h` is generated from data of
+[Trunks1982/Daikin-Rotex-HPSU-CAN-Seriell](https://github.com/Trunks1982/Daikin-Rotex-HPSU-CAN-Seriell)
+(MIT, Copyright (c) 2024 wrfz, 123Trunks); its license notice is kept in the file header.
